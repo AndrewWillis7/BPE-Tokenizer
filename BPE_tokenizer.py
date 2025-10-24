@@ -1,5 +1,5 @@
 
-# pip install tqdm datasets
+# pip install tqdm datasets hf_xet
 
 import json
 import re
