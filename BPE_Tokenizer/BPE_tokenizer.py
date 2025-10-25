@@ -11,11 +11,29 @@ from typing import List, Tuple, Dict
 SPECIAL_TOKENS = ["<pad>", "<unk>", "<s>", "</s>", "<mask>"]
 
 def normalize_text(s: str) -> str:
+    """
+    Normalize input text by applying Unicode normalization and whitespace cleanup.
+
+    Args:
+        s (str): Input string to normalize.
+
+    Returns:
+        str: Normalized string.
+    """
     s = unicodedata.normalize("NFKC", s)
     s = re.sub(r"\s+", " ", s).strip()
     return s
 
 def get_vocab_from_corpus(corpus: List[str]) -> Dict[Tuple[str,...], int]:
+    """
+    Build a vocabulary from a list of text lines.
+
+    Args:
+        corpus (List[str]): List of text lines.
+
+    Returns:
+        Dict[Tuple[str,...], int]: Vocabulary with token tuples as keys and frequencies as values.
+    """
     vocab = collections.Counter()
     for line in corpus:
         line = normalize_text(line)
@@ -28,6 +46,15 @@ def get_vocab_from_corpus(corpus: List[str]) -> Dict[Tuple[str,...], int]:
     return vocab
 
 def get_pair_frequencies(vocab: Dict[Tuple[str,...], int]) -> Dict[Tuple[str,str], int]:
+    """
+    Calculate frequencies of adjacent symbol pairs in the vocabulary.
+
+    Args:
+        vocab (Dict[Tuple[str,...], int]): Vocabulary with token tuples as keys and frequencies as values.
+
+    Returns:
+        Dict[Tuple[str,str], int]: Frequencies of adjacent symbol pairs.
+    """
     pairs = collections.Counter()
     for token, freq in vocab.items():
         for i in range(len(token)-1):
@@ -35,6 +62,16 @@ def get_pair_frequencies(vocab: Dict[Tuple[str,...], int]) -> Dict[Tuple[str,str
     return pairs
 
 def merge_pair(vocab, pair):
+    """
+    Merge a given pair of symbols in the vocabulary.
+
+    Args:
+        vocab (Dict[Tuple[str,...], int]): Vocabulary with token tuples as keys and frequencies as values.
+        pair (Tuple[str, str]): Pair of symbols to merge.
+
+    Returns:
+        Dict[Tuple[str,...], int]: Updated vocabulary with merged pairs.
+    """
     a, b = pair
     new_vocab = {}
     for token, freq in vocab.items():
@@ -52,6 +89,15 @@ def merge_pair(vocab, pair):
     return new_vocab
 
 def train_bpe(corpus: List[str], num_merges: int = 10000):
+    """
+    Trains BPE tokenizer on the given corpus.
+
+    Args:
+        corpus (List[str]): List of text lines.
+        num_merges (int): Number of merge operations to perform.
+    Returns:
+        Tuple[List[Tuple[str, str]], Dict[str, int]]: List of merges and token to ID mapping.
+    """
     vocab = get_vocab_from_corpus(corpus)
     merges = []
 
@@ -83,7 +129,15 @@ def train_bpe(corpus: List[str], num_merges: int = 10000):
     return merges, token2id
 
 def save_tokenizer(merges: List[Tuple[str, str]], token2id: Dict[str, int], path_prefix: str):
-    """Saves merges.txt and vocab.json"""
+    """
+    Saves merges.txt and vocab.json
+
+    Args:
+        merges (List[Tuple[str, str]]): List of merges.
+        token2id (Dict[str, int]): Token to ID mapping.
+    Returns:
+        None
+    """
     with open(f"{path_prefix}_merges.txt", "w", encoding="utf-8") as f:
         for a, b in merges:
             f.write(f"{a} {b}\n")
@@ -91,7 +145,15 @@ def save_tokenizer(merges: List[Tuple[str, str]], token2id: Dict[str, int], path
         json.dump(token2id, f, ensure_ascii=False, indent=2)
 
 def load_tokenizer(path_prefix: str):
-    """Loads merges.txt and vocab.json"""
+    """
+    Loads merges.txt and vocab.json
+
+    Args:
+        path_prefix (str): Prefix path for the tokenizer files.
+
+    Returns:
+        Tuple[List[Tuple[str, str]], Dict[str, int]]: List of merges and token to ID mapping.
+    """
     with open(f"{path_prefix}_merges.txt", "r", encoding="utf-8") as f:
         merges = [tuple(line.strip().split()) for line in f if line.strip()]
     with open(f"{path_prefix}_vocab.json", "r", encoding="utf-8") as f:
@@ -100,6 +162,16 @@ def load_tokenizer(path_prefix: str):
 
 # Class Setup
 class BPETokenizer:
+    """
+    Byte Pair Encoding (BPE) Tokenizer class.
+
+    Args:
+        merges (List[Tuple[str, str]]): List of merges.
+        token2id (Dict[str, int]): Token to ID mapping.
+
+    Returns:
+        None
+    """
     def __init__(self, merges: List[Tuple[str, str]], token2id: Dict[str, int]):
         self.merges = merges
         self.token2id = token2id
@@ -114,6 +186,15 @@ class BPETokenizer:
         self.pair2merged = {(a, b): a + b for a, b in merges}
 
     def _encode_word(self, word: str):
+        """
+        Encodes a single word into BPE tokens.
+
+        Args:
+            word (str): The word to encode.
+
+        Returns:
+            List[int]: List of token IDs.
+        """
         symbols = list(word) + ["</w>"]
         while True:
             pairs = [(symbols[i], symbols[i+1]) for i in range(len(symbols)-1)]
@@ -138,6 +219,16 @@ class BPETokenizer:
         return [self.token2id.get(s, unk_id) for s in symbols if s != "</w>"]
 
     def encode(self, text: str, add_special=True):
+        """
+        Encodes a text string into BPE tokens.
+
+        Args:
+            text (str): The text to encode.
+            add_special (bool): Whether to add special tokens (BOS, EOS).
+
+        Returns:
+            List[int]: List of token IDs.
+        """
         text = normalize_text(text)
         ids = []
         if add_special:
@@ -149,6 +240,15 @@ class BPETokenizer:
         return ids
 
     def decode(self, ids):
+        """
+        Decodes a list of token IDs back into a string.
+
+        Args:
+            ids (List[int]): List of token IDs.
+
+        Returns:
+            str: Decoded string.
+        """
         tokens = [self.id2token.get(i, self.unk) for i in ids]
         text = "".join(tokens).replace("</w>", " ")
         return text.strip()
